@@ -12,6 +12,7 @@
     "mongodb": "^6.12.0",
     "mongoose": "^8.9.5",
     "next": "15.1.5",
+    "next-client-cookies": "^2.0.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

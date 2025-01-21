@@ -44,7 +44,6 @@ const createPost = async ({ title, content }: { title: string, content: string }
         await connect();
 
         const post = new Post({ title, content, author: (await cookie).get('name')?.value });
-        await post.save();
 
         return NextResponse.json({ _id: await post.save() });
     } catch (error) {

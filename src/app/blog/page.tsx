@@ -1,6 +1,9 @@
 'use client';
 import React from 'react';
+import { useCookies } from 'next-client-cookies';
+
 import { Comment, Post } from '@/logic/types';
+import PostComponent from '@/components/post';
 
 type actions = {
     type: 'add',
@@ -16,11 +19,6 @@ type actions = {
     type: 'delete',
     postId: string
 };
-
-const getCookie = (name: string) => {
-    const match = document.cookie.match(new RegExp(name + '=([^;]+)'));
-    return match ? match[1] : '';
-}
 
 const postsReducer = (state: Post[], action: actions) => {
     switch (action.type) {
@@ -42,7 +40,8 @@ const postsReducer = (state: Post[], action: actions) => {
 const Page = () => {
     const [ personalPosts, setPersonalPosts ] = React.useReducer<Post[], [ actions: actions ]>(postsReducer, []);
     const [ posts, setPosts ] = React.useReducer<Post[], [ actions: actions ]>(postsReducer, []);
-    const username = React.useMemo(() => getCookie('name'), [ document.cookie ]);
+    const cookies = useCookies();
+    const username = cookies.get('name');
 
     React.useEffect(() => {
         fetch('/api/blog?personal=false')
@@ -60,7 +59,7 @@ const Page = () => {
         const title = form.get('title') as string;
         const content = form.get('content') as string;
 
-        if (!title || !content) return;
+        if (!title || !content || !username) return;
 
         fetch('/api/blog?type=create', {
             method: 'POST',
@@ -77,6 +76,14 @@ const Page = () => {
             } }))
     };
 
+    const loadMore = (personal: boolean) => {
+        const skip = personal ? personalPosts.length : posts.length;
+
+        fetch(`/api/blog?personal=${ personal }&skip=${ skip }`)
+            .then(response => response.json())
+            .then((posts: Post[]) => personal ? setPersonalPosts({ type: 'concat', posts }) : setPosts({ type: 'concat', posts }))
+    }
+
     return (
         <div>
             <h1>Create a post</h1>
@@ -89,39 +96,20 @@ const Page = () => {
             {
                 personalPosts.length !== 0
                 ?   personalPosts.map((post) => (
-                        <div key={ post._id }>
-                            <h2>{ post.title }</h2>
-                            <p>{ post.content }</p>
-                            <ul>
-                            { // i recently learned I shouldn't use index as key, but I couldn't give less of a damn
-                                post.comments.map((comment, index) => (
-                                    <li key={ index }><p>{ comment.content }</p></li>
-                                ))
-                            }
-                            </ul>
-                            <button onClick={ () =>
-                                fetch(`/api/blog?type=delete&id=${ encodeURIComponent(post._id) }`, { method: 'POST' })
-                                    .then(response =>
-                                        response.ok
-                                        ?   setPersonalPosts({ type: 'delete', postId: post._id })
-                                        :   console.error
-                                    )
-                            }>Delete</button>
-                        </div>
+                        <PostComponent key={ post._id } personal={ true } post={ post } dispatch={ setPersonalPosts } />
                     ))
                 :   <p>You have no posts</p>
             }
+            <button onClick={ () => loadMore(true)}>Load more</button>
             <h1>Posts</h1>
             {
                 posts.length !== 0
                 ?   posts.map((post) => (
-                        <div key={ post._id }>
-                            <h2>{ post.title }</h2>
-                            <p>{ post.content }</p>
-                        </div>
+                        <PostComponent key={ post._id } personal={ false } post={ post } dispatch={ setPersonalPosts } />
                     ))
                 :   <p>No posts</p>
             }
+            <button onClick={ () => loadMore(false)}>Load more</button>
         </div>
     );
 };
